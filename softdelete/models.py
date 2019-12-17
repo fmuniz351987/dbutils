@@ -42,10 +42,13 @@ class SoftDeleteModel(models.Model):
 	all_objects = SoftDeletionManager(alive_only=False)
 
 	def delete(self):
+		children_filter = {self._meta.model_name: self}
 		self.deleted_at = timezone.now()
 		self.save()
 		for field in self._meta.get_fields():
-			print(field)
+			if field.is_relation:
+				if field.on_delete == models.CASCADE:
+					field.related_model.objects.filter(**children_filter).delete()
 
 	def hard_delete(self):
 		super(SoftDeleteModel, self).delete()
