@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
-
+# Create your models here.
 class SoftDeletionQuerySet(models.QuerySet):
 	def delete(self):
 		return super(SoftDeletionQuerySet, self).update(deleted_at=timezone.now())
@@ -31,7 +31,6 @@ class SoftDeletionManager(models.Manager):
 
 
 class SoftDeleteModel(models.Model):
-
 	class Meta:
 		abstract = True
 	
@@ -41,10 +40,19 @@ class SoftDeleteModel(models.Model):
 
 	objects = SoftDeletionManager()
 	all_objects = SoftDeletionManager(alive_only=False)
-	
+
 	def delete(self):
 		self.deleted_at = timezone.now()
 		self.save()
+		for field in self._meta.get_fields():
+			print(field)
 
 	def hard_delete(self):
-		super(SoftDeletionManager, self).delete()
+		super(SoftDeleteModel, self).delete()
+
+class Parent(SoftDeleteModel):
+	name = models.CharField(max_length=64, unique=True)
+
+class Child(SoftDeleteModel):
+	name = models.CharField(max_length=64, unique=True)
+	parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
