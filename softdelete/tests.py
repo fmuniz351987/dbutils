@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.db import IntegrityError
 
 from . import models
 
@@ -40,3 +41,11 @@ class CascadeTestCase(TestCase):
 	def test_cascade_soft_delete(self):
 		self.p2.delete()
 		self.assertEqual(models.Child.objects.count(), 1)
+		self.assertEqual(models.Child.all_objects.count(), 2)
+
+	def test_unique_soft_delete(self):
+		self.p2.delete()
+		try:
+			self.create_parent(name=self.p2.name)
+		except IntegrityError:
+			self.fail('Unicity does not exclude soft deleted objects.')

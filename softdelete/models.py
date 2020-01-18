@@ -1,10 +1,14 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 # Create your models here.
 class SoftDeletionQuerySet(models.QuerySet):
 	def delete(self):
-		return super(SoftDeletionQuerySet, self).update(deleted_at=timezone.now())
+		with transaction.atomic():
+			return super(SoftDeletionQuerySet, self).update(deleted_at=timezone.now())
+
+	def undelete(self):
+		return super(SoftDeletionQuerySet, self).update(deleted_at=None)
 
 	def hard_delete(self):
 		return super(SoftDeletionQuerySet, self).delete()
@@ -42,13 +46,16 @@ class SoftDeleteModel(models.Model):
 	all_objects = SoftDeletionManager(alive_only=False)
 
 	def delete(self):
+		with transaction.atomic():
+			self.deleted_at = timezone.now()
+			self.save()
+			self.cascade_soft_delete()
+
+	def cascade_soft_delete(self):
 		children_filter = {self._meta.model_name: self}
-		self.deleted_at = timezone.now()
-		self.save()
 		for field in self._meta.get_fields():
-			if field.is_relation:
-				if field.on_delete == models.CASCADE:
-					field.related_model.objects.filter(**children_filter).delete()
+			if field.is_relation and field.on_delete == models.CASCADE:
+				field.related_model.objects.filter(**children_filter).delete()
 
 	def hard_delete(self):
 		super(SoftDeleteModel, self).delete()
